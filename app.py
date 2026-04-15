@@ -187,12 +187,15 @@ def feature_compare_df(partial_row: dict, top_n: int = 5) -> pd.DataFrame:
     for c, v in partial_row.items():
         if c in sample_df.columns and pd.api.types.is_numeric_dtype(sample_df[c]):
             med = float(sample_df[c].median()) if sample_df[c].notna().any() else 0.0
+            base = abs(med) if abs(med) > 1e-9 else 1.0
             rows.append(
                 {
                     "feature": c,
                     "input_value": float(v),
                     "dataset_median": med,
                     "gap": float(v) - med,
+                    "relative_gap_pct": ((float(v) - med) / base) * 100.0,
+                    "input_index": (float(v) / base) * 100.0,
                 }
             )
     if not rows:
@@ -223,8 +226,20 @@ if st.button("Predict Risk", type="primary"):
 
     compare_df = feature_compare_df(input_row, top_n=5)
     if not compare_df.empty:
-        st.markdown("#### Input vs Dataset Median (Top Numeric Differences)")
-        st.bar_chart(compare_df.set_index("feature")[["input_value", "dataset_median"]], use_container_width=True)
+        st.markdown("#### Input vs Dataset Median (Standardized View, median = 100)")
+        chart_df = compare_df.copy()
+        chart_df["median_index"] = 100.0
+        st.bar_chart(
+            chart_df.set_index("feature")[["input_index", "median_index"]],
+            use_container_width=True,
+        )
+        st.caption("Interpretation: values above 100 are above dataset median; below 100 are below median.")
+        st.dataframe(
+            chart_df[["feature", "input_value", "dataset_median", "relative_gap_pct"]]
+            .rename(columns={"relative_gap_pct": "relative_gap_%"}),
+            use_container_width=True,
+            hide_index=True,
+        )
 
     drivers = driver_snapshot(input_row, top_n=3)
     if drivers:
