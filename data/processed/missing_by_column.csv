@@ -1,0 +1,13 @@
+column,missing_count,missing_ratio
+person_age,0,0.0
+person_income,0,0.0
+person_home_ownership,0,0.0
+person_emp_length,0,0.0
+loan_intent,0,0.0
+loan_grade,0,0.0
+loan_amnt,0,0.0
+loan_int_rate,0,0.0
+default_flag,0,0.0
+loan_percent_income,0,0.0
+cb_person_default_on_file,0,0.0
+cb_person_cred_hist_length,0,0.0
