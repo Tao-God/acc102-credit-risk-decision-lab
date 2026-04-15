@@ -182,6 +182,25 @@ def driver_snapshot(partial_row: dict, top_n: int = 3):
     drivers = sorted(drivers, key=lambda x: x[1], reverse=True)[:top_n]
     return drivers
 
+def feature_compare_df(partial_row: dict, top_n: int = 5) -> pd.DataFrame:
+    rows = []
+    for c, v in partial_row.items():
+        if c in sample_df.columns and pd.api.types.is_numeric_dtype(sample_df[c]):
+            med = float(sample_df[c].median()) if sample_df[c].notna().any() else 0.0
+            rows.append(
+                {
+                    "feature": c,
+                    "input_value": float(v),
+                    "dataset_median": med,
+                    "gap": float(v) - med,
+                }
+            )
+    if not rows:
+        return pd.DataFrame()
+    out = pd.DataFrame(rows)
+    out["abs_gap"] = out["gap"].abs()
+    return out.sort_values("abs_gap", ascending=False).head(top_n)
+
 if st.button("Predict Risk", type="primary"):
     x_new = build_full_row(input_row)
     pd_default = float(model.predict_proba(x_new)[:, 1][0])
@@ -199,6 +218,13 @@ if st.button("Predict Risk", type="primary"):
 
     st.markdown(f"### Predicted Default Probability: **{pd_default:.2%}**")
     st.markdown(f"### Recommendation: :{color}[**{decision}**]")
+    st.markdown("#### Risk Level Gauge")
+    st.progress(min(max(pd_default, 0.0), 1.0), text=f"Current default risk: {pd_default:.2%} (threshold: {threshold:.0%})")
+
+    compare_df = feature_compare_df(input_row, top_n=5)
+    if not compare_df.empty:
+        st.markdown("#### Input vs Dataset Median (Top Numeric Differences)")
+        st.bar_chart(compare_df.set_index("feature")[["input_value", "dataset_median"]], use_container_width=True)
 
     drivers = driver_snapshot(input_row, top_n=3)
     if drivers:
