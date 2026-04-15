@@ -222,20 +222,55 @@ if st.button("Predict Risk", type="primary"):
     st.markdown(f"### Predicted Default Probability: **{pd_default:.2%}**")
     st.markdown(f"### Recommendation: :{color}[**{decision}**]")
     st.markdown("#### Risk Level Gauge")
-    st.progress(min(max(pd_default, 0.0), 1.0), text=f"Current default risk: {pd_default:.2%} (threshold: {threshold:.0%})")
+    gauge_pct = min(max(pd_default, 0.0), 1.0) * 100.0
+    st.markdown(
+        f"""
+<div style="max-width:520px;">
+  <div style="
+      width:240px;height:120px;margin:6px auto 2px auto;border-radius:240px 240px 0 0;
+      background:conic-gradient(from 180deg,#2ecc71 0deg,#f1c40f 90deg,#e74c3c 180deg);
+      position:relative;overflow:hidden;">
+    <div style="
+        position:absolute;left:20px;top:20px;width:200px;height:100px;background:#f4f8ff;
+        border-radius:200px 200px 0 0;"></div>
+    <div style="
+        position:absolute;left:118px;top:112px;width:4px;height:84px;background:#1f2a44;
+        transform-origin:bottom center;transform:translate(-50%,-100%) rotate({(gauge_pct * 1.8) - 90:.2f}deg);"></div>
+  </div>
+  <div style="text-align:center;font-weight:700;color:#1f2a44;margin-top:2px;">
+    Current default risk: {pd_default:.2%} | Threshold: {threshold:.0%}
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
     compare_df = feature_compare_df(input_row, top_n=5)
     if not compare_df.empty:
-        st.markdown("#### Input vs Dataset Median (Standardized View, median = 100)")
-        chart_df = compare_df.copy()
-        chart_df["median_index"] = 100.0
-        st.bar_chart(
-            chart_df.set_index("feature")[["input_index", "median_index"]],
-            use_container_width=True,
-        )
-        st.caption("Interpretation: values above 100 are above dataset median; below 100 are below median.")
+        st.markdown("#### Top 5 Feature Deviations (vs Dataset Median)")
+        max_abs = float(compare_df["relative_gap_pct"].abs().max()) if len(compare_df) else 1.0
+        max_abs = max(max_abs, 1.0)
+        for _, r in compare_df.iterrows():
+            pct = float(r["relative_gap_pct"])
+            bar_w = min(abs(pct) / max_abs * 100.0, 100.0)
+            bar_color = "#2ecc71" if pct < 0 else "#ff7f50"
+            st.markdown(
+                f"""
+<div style="margin:6px 0 2px 0;">
+  <div style="display:flex;justify-content:space-between;font-size:13px;">
+    <span><b>{r['feature']}</b></span>
+    <span>{pct:+.1f}%</span>
+  </div>
+  <div style="height:9px;background:#e8edff;border-radius:999px;overflow:hidden;">
+    <div style="height:9px;width:{bar_w:.1f}%;background:{bar_color};border-radius:999px;"></div>
+  </div>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+        st.caption("Orange means above median; green means below median.")
         st.dataframe(
-            chart_df[["feature", "input_value", "dataset_median", "relative_gap_pct"]]
+            compare_df[["feature", "input_value", "dataset_median", "relative_gap_pct"]]
             .rename(columns={"relative_gap_pct": "relative_gap_%"}),
             use_container_width=True,
             hide_index=True,
